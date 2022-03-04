@@ -1,5 +1,6 @@
 CC=gcc -I
 FLAGS=-g -pedantic
+LIBS=Easock.c
 
-sock: main.c
-	$(CC) $(FLAGS) main.c -o sock
+sock: test.c
+	$(CC) $(FLAGS) $(LIBS) test.c -o sock
