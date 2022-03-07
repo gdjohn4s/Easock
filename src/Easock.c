@@ -17,24 +17,9 @@ int make_sock()
     return sock;
 }
 
-/* TODO: extract receive function to make it as standalone
-void rcvmsg(int socket, char* received)
-{
-    ssize_t byte_rcv = recv (socket, received, sizeof(received), 0);
-    //ssize_t byte_rcv = read (socket, *received, sizeof(received));
-    printf("byte_rcv -> %ld\n", byte_rcv);
-    if (byte_rcv > 0) {
-        printf("Byte received -> %ld\nMsg received -> %s", byte_rcv, received);
-    } else {
-        printf("No bytes received\n");
-    }
-
-}
-*/
-
 int send_msg(int sock, char* hostname, uint16_t port, char* msg)
 {
-    /* Set a socket structure with host destination information and send a message, then try to receive a response */ 
+    /* Set a socket structure with host destination information and send a simple message, not a GET/POST etc request */ 
     struct sockaddr_in server;
 
     server.sin_family = AF_INET;
@@ -48,7 +33,6 @@ int send_msg(int sock, char* hostname, uint16_t port, char* msg)
         exit(-1);
     }
     else {
-        printf("Trying to connect -> %s\n", hostname);
         if (connect(sock, (struct sockaddr*)&server, sizeof(server)) < 0) {
             // error
             fprintf(stderr, "Error connecting to %s\n", hostname);
@@ -71,4 +55,60 @@ int send_msg(int sock, char* hostname, uint16_t port, char* msg)
         }
         return sock;
     }
+}
+
+void get_req(char *page, char *hostaddr, uint16_t port)
+{
+    /* 
+     * Send a GET request to *page and get response in recvline.
+     * the request is creating by prepring the req header with all req options chosen by the user.
+     */
+    char sendline[1024 + 1], recvline[6000], *ptr;
+    int n;
+
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr.s_addr = htonl(0);
+
+    int sock = make_sock();
+
+    /* convert IPv4 and IPv6 addresses from text to binary form */
+    if (inet_pton(server.sin_family, hostaddr, &server.sin_addr) <= 0)
+    {
+        printf("Error connecting to raspberry\n");
+        exit(1);
+    }
+
+    if (connect(sock, (struct sockaddr*)&server, sizeof(server)) < 0)
+    {
+        fprintf(stderr, "Error connecting to %s\n", hostaddr);
+        exit(1);
+    }
+
+    /* putting function arguments into the request string */
+    sprintf (sendline,
+             "GET %s HTTP/1.0\r\n"     // Request header
+             "Host: %s\r\n"            // Host address
+             "Content-type: application/x-www-form-urlencoded\r\n"
+             "Content-length: %ld\r\n\r\n"
+             "%s\r\n", page, hostaddr, strlen(sendline), sendline);
+
+    printf("Sending request to.. %s\n", hostaddr);
+    /* if send it's ok get the response */
+    if (send(sock, sendline, strlen(sendline), 0) >= 0)
+    {
+        while ((n = read(sock, recvline, sizeof(recvline))) > 0)
+        {
+            recvline[n] = '\0';
+
+            if (fputs(recvline, stdout) == EOF)
+            {
+                printf("fputs() Error\n");
+            }
+            /* locating \r\n */
+            ptr = strstr(recvline, "\r\n\r\n");
+        }
+    }
+    close(sock);
 }
