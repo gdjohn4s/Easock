@@ -15,5 +15,6 @@
 
 int make_sock();
 int send_msg(int sock, char* hostname, uint16_t port, char* msg);
+void get_req(char *page, char *hostaddr, uint16_t port);
 
 #endif
